@@ -48,6 +48,7 @@ func EncodeEntry(e *LogEntry) ([]byte, int) {
 	}
 	header := make([]byte, MaxHeaderSize)
 	// encode header.
+	header[4] = byte(e.Type)
 	index := 5
 	index += binary.PutVarint(header[index:], int64(len(e.Key)))
 	index += binary.PutVarint(header[index:], int64(len(e.Value)))
