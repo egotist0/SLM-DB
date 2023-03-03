@@ -31,14 +31,14 @@ func TestEncodeEntry(t *testing.T) {
 			"type-delete", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("lotusdb"), ExpiredAt: 443434211, Type: TypeDelete}}, []byte{38, 27, 121, 27, 1, 4, 14, 198, 147, 242, 166, 3, 107, 118, 108, 111, 116, 117, 115, 100, 98}, 21,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := EncodeEntry(tt.args.e)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("EncodeEntry() got = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, got1 := EncodeEntry(tc.args.e)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("EncodeEntry() got = %v, want %v", got, tc.want)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("EncodeEntry() got = %v, want %v", got, tt.want1)
+			if got1 != tc.want1 {
+				t.Errorf("EncodeEntry() got = %v, want %v", got, tc.want1)
 			}
 		})
 	}
@@ -67,14 +67,14 @@ func Test_decodecodeHeader(t *testing.T) {
 			"normal", args{buf: []byte{101, 208, 223, 156, 0, 4, 14, 198, 147, 242, 166, 3}}, &entryHeader{crc32: 2631913573, typ: 0, kSize: 2, vSize: 7, expiredAt: 443434211}, 12,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := decodeHeader(tt.args.buf)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("decodeHeader() got = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, got1 := decodeHeader(tc.args.buf)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("decodeHeader() got = %v, want %v", got, tc.want)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("decodeHeader() got1 = %v, want %v", got1, tt.want1)
+			if got1 != tc.want1 {
+				t.Errorf("decodeHeader() got1 = %v, want %v", got1, tc.want1)
 			}
 		})
 	}
@@ -100,10 +100,10 @@ func Test_getEntryCrc(t *testing.T) {
 			"normal", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("lotusdb")}, h: []byte{0, 4, 14, 198, 147, 242, 166, 3}}, 2631913573,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getEntryCrc(tt.args.e, tt.args.h); got != tt.want {
-				t.Errorf("getEntryCrc() = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := getEntryCrc(tc.args.e, tc.args.h); got != tc.want {
+				t.Errorf("getEntryCrc() = %v, want %v", got, tc.want)
 			}
 		})
 	}
