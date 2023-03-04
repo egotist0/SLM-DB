@@ -26,7 +26,7 @@ func NewMMapSelector(fName string, fSize int64) (IOSelector, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MMapSelector{fd: file, buff: buff, bufLen: int64(len(buff))}, nil
+	return &MMapSelector{fd: file, buf: buff, bufLen: int64(len(buff))}, nil
 }
 
 // Write copy slice b into mapped buffer at offset.
@@ -58,7 +58,7 @@ func (mio *MMapSelector) Sync() error {
 }
 
 // Close unmap/sync mapped buffer and close fd.
-func (mio *MMapSelector) close() error {
+func (mio *MMapSelector) Close() error {
 	if err := mmap.Msync(mio.buf); err != nil {
 		return err
 	}
