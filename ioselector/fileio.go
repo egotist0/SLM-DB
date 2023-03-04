@@ -9,7 +9,7 @@ type FileIOSelector struct {
 
 // NewFileIOSelector create a new file io selector.
 func NewFileIOSelector(fName string, fSize int64) (IOSelector, error) {
-	if fSize < 0 {
+	if fSize <= 0 {
 		return nil, ErrInvalidFsize
 	}
 	file, err := openFile(fName, fSize)

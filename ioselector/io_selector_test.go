@@ -88,17 +88,19 @@ func testNewIOSelector(t *testing.T, ioType uint8) {
 			if ioType == 1 {
 				io, err = NewMMapSelector(absPath, tc.args.fSize)
 			}
+
 			defer func() {
 				if io != nil {
 					err = io.Delete()
 					assert.Nil(t, err)
 				}
 			}()
+
 			if tc.args.fSize > 0 {
 				assert.Nil(t, err)
 				assert.NotNil(t, io)
 			} else {
-				assert.Equal(t, err, ErrInvalidfSize)
+				assert.Equal(t, err, ErrInvalidFsize)
 			}
 		})
 	}
@@ -178,6 +180,14 @@ func testIOSelectorWrite(t *testing.T, ioType uint8) {
 }
 
 func testIOSelectorRead(t *testing.T, ioType uint8) {
+	type fields struct {
+		selector IOSelector
+	}
+	type args struct {
+		b      []byte
+		offset int64
+	}
+
 	absPath, err := filepath.Abs(filepath.Join("/tmp", "00000001.wal"))
 	var selector IOSelector
 	if ioType == 0 {
@@ -187,11 +197,13 @@ func testIOSelectorRead(t *testing.T, ioType uint8) {
 		selector, err = NewMMapSelector(absPath, 100)
 	}
 	assert.Nil(t, err)
+
 	defer func() {
 		if selector != nil {
 			_ = selector.Delete()
 		}
 	}()
+
 	offsets := writeSomeData(selector, t)
 	results := [][]byte{
 		[]byte(""),
@@ -199,13 +211,6 @@ func testIOSelectorRead(t *testing.T, ioType uint8) {
 		[]byte("egotist"),
 	}
 
-	type fields struct {
-		selector IOSelector
-	}
-	type args struct {
-		b      []byte
-		offset int64
-	}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -276,11 +281,13 @@ func testIOSelectorSync(t *testing.T, ioType uint8) {
 			selector, err = NewMMapSelector(absPath, fSize)
 		}
 		assert.Nil(t, err)
+
 		defer func() {
 			if selector != nil {
 				_ = selector.Delete()
 			}
 		}()
+
 		writeSomeData(selector, t)
 		err = selector.Sync()
 		assert.Nil(t, err)
@@ -306,12 +313,14 @@ func testIOSelectorClose(t *testing.T, ioType uint8) {
 			selector, err = NewMMapSelector(absPath, fSize)
 		}
 		assert.Nil(t, err)
+
 		defer func() {
 			if selector != nil {
 				err := selector.Close()
 				assert.Nil(t, err)
 			}
 		}()
+
 		writeSomeData(selector, t)
 		assert.Nil(t, err)
 	}

@@ -15,7 +15,7 @@ type MMapSelector struct {
 
 // NewMMapSelector create a new mmap selector.
 func NewMMapSelector(fName string, fSize int64) (IOSelector, error) {
-	if fSize < 0 {
+	if fSize <= 0 {
 		return nil, ErrInvalidFsize
 	}
 	file, err := openFile(fName, fSize)
@@ -35,7 +35,7 @@ func (mio *MMapSelector) Write(b []byte, offset int64) (int, error) {
 	if length <= 0 {
 		return 0, nil
 	}
-	if length < 0 || length+offset > mio.bufLen {
+	if offset < 0 || length+offset > mio.bufLen {
 		return 0, io.EOF
 	}
 	return copy(mio.buf[offset:], b), nil
