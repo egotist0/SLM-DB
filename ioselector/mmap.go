@@ -74,10 +74,10 @@ func (mio *MMapSelector) Delete() error {
 		return err
 	}
 	mio.buf = nil
-
 	if err := mio.fd.Truncate(0); err != nil {
 		return err
 	}
+
 	if err := mio.fd.Close(); err != nil {
 		return err
 	}

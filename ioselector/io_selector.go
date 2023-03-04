@@ -48,7 +48,7 @@ func openFile(name string, size int64) (*os.File, error) {
 	}
 
 	if stat.Size() < size {
-		if err := fd.Truncate(size); err != nil {
+		if err := fd.Truncate(size); err != nil { // Changes the size of the file.
 			return nil, err
 		}
 	}

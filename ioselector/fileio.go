@@ -44,5 +44,5 @@ func (fio *FileIOSelector) Delete() error {
 	if err := fio.fd.Close(); err != nil {
 		return err
 	}
-	return os.Remove(fio.fd.Name())
+	return os.Remove(fio.fd.Name()) // Remove removes the named file or (empty) directory.
 }
