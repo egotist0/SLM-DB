@@ -1,12 +1,16 @@
 package ioselector
 
-import "os"
+import (
+	"io"
+	"os"
+	"storage/mmap"
+)
 
-// MMapIOSelector represents using memory-mapped file I/O.
-type MMapIOSelector struct {
+// MMapSelector represents using memory-mapped file I/O.
+type MMapSelector struct {
 	fd     *os.File // system file descriptor
 	buf    []byte   // a buffer of mmap
-	bufLne int64
+	bufLen int64
 }
 
 // NewMMapSelector create a new mmap selector.
@@ -18,33 +22,64 @@ func NewMMapSelector(fName string, fSize int64) (IOSelector, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MMapIOSelector{fd: file}, nil
+	buff, err := mmap.Mmap(file, true, fSize)
+	if err != nil {
+		return nil, err
+	}
+	return &MMapSelector{fd: file, buff: buff, bufLen: int64(len(buff))}, nil
 }
 
-// Write is a wrapper of os.File WriteAt.
-func (fio *MMapIOSelector) Write(b []byte, offset int64) (int, error) {
-	return fio.fd.WriteAt(b, offset)
+// Write copy slice b into mapped buffer at offset.
+func (mio *MMapSelector) Write(b []byte, offset int64) (int, error) {
+	length := int64(len(b))
+	if length <= 0 {
+		return 0, nil
+	}
+	if length < 0 || length+offset > mio.bufLen {
+		return 0, io.EOF
+	}
+	return copy(mio.buf[offset:], b), nil
 }
 
-// Read is a wrapper of os.File ReadAt.
-func (fio *MMapIOSelector) Read(b []byte, offset int64) (int, error) {
-	return fio.fd.ReadAt(b, offset)
+// Read copy data from mapped buffer into slice b at offset.
+func (mio *MMapSelector) Read(b []byte, offset int64) (int, error) {
+	if offset < 0 || offset >= mio.bufLen {
+		return 0, io.EOF
+	}
+	if offset+int64(len(b)) >= mio.bufLen {
+		return 0, io.EOF
+	}
+	return copy(b, mio.buf[offset:]), nil
 }
 
-// Sync is a wrapper of os.File Sync.
-func (fio *MMapIOSelector) Sync() error {
-	return fio.fd.Sync()
+// Sync synchronize the mapped buffer to the file's contents on PM(disk).
+func (mio *MMapSelector) Sync() error {
+	return mmap.Msync(mio.buf)
 }
 
-// Close is a wrapper of os.File Close.
-func (fio *MMapIOSelector) Close() error {
-	return fio.fd.Close()
-}
-
-// Delete the file is we will no longer use it.
-func (fio *MMapIOSelector) Delete() error {
-	if err := fio.fd.Close(); err != nil {
+// Close unmap/sync mapped buffer and close fd.
+func (mio *MMapSelector) close() error {
+	if err := mmap.Msync(mio.buf); err != nil {
 		return err
 	}
-	return os.Remove(fio.fd.Name())
+	if err := mmap.Munmap(mio.buf); err != nil {
+		return err
+	}
+	return mio.fd.Close() // Close closes the File, rendering it unusable for I/O.
+}
+
+// Delete delete mapped buffer and remove file on disk.
+func (mio *MMapSelector) Delete() error {
+	if err := mmap.Munmap(mio.buf); err != nil {
+		return err
+	}
+	mio.buf = nil
+
+	if err := mio.fd.Truncate(0); err != nil {
+		return err
+	}
+	if err := mio.fd.Close(); err != nil {
+		return err
+	}
+	return os.Remove(mio.fd.Name())
 }

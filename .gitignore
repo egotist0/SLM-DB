@@ -4,3 +4,4 @@ codecov.yaml
 coverage.txt
 benchmark/
 .vscode/
+.VSCodeCounter/

@@ -14,7 +14,7 @@ func Munmap(b []byte) error {
 	return munmap(b)
 }
 
-// madvise uses the madvise system call to give advise about the use of memory
+// Madvise uses the madvise system call to give advise about the use of memory
 // when using a slice that is memory-mapped to a file. Set the readahead flag to
 // false if page references are expected in random order.
 func Madvise(b []byte, readahead bool) error {
