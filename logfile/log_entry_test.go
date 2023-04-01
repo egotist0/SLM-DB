@@ -25,10 +25,10 @@ func TestEncodeEntry(t *testing.T) {
 			"no-key-value", args{e: &LogEntry{ExpiredAt: 443434211}}, []byte{51, 97, 150, 123, 0, 0, 0, 198, 147, 242, 166, 3}, 12,
 		},
 		{
-			"with-key-value", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("lotusdb"), ExpiredAt: 443434211}}, []byte{101, 208, 223, 156, 0, 4, 14, 198, 147, 242, 166, 3, 107, 118, 108, 111, 116, 117, 115, 100, 98}, 21,
+			"with-key-value", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("egotist"), ExpiredAt: 443434211}}, []byte{101, 208, 223, 156, 0, 4, 14, 198, 147, 242, 166, 3, 107, 118, 108, 111, 116, 117, 115, 100, 98}, 21,
 		},
 		{
-			"type-delete", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("lotusdb"), ExpiredAt: 443434211, Type: TypeDelete}}, []byte{38, 27, 121, 27, 1, 4, 14, 198, 147, 242, 166, 3, 107, 118, 108, 111, 116, 117, 115, 100, 98}, 21,
+			"type-delete", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("egotist"), ExpiredAt: 443434211, Type: TypeDelete}}, []byte{38, 27, 121, 27, 1, 4, 14, 198, 147, 242, 166, 3, 107, 118, 108, 111, 116, 117, 115, 100, 98}, 21,
 		},
 	}
 	for _, tc := range tests {
@@ -97,7 +97,7 @@ func Test_getEntryCrc(t *testing.T) {
 			"no-fields", args{e: &LogEntry{}, h: []byte{0, 0, 0, 0}}, 558161692,
 		},
 		{
-			"normal", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("lotusdb")}, h: []byte{0, 4, 14, 198, 147, 242, 166, 3}}, 2631913573,
+			"normal", args{e: &LogEntry{Key: []byte("kv"), Value: []byte("egotist")}, h: []byte{0, 4, 14, 198, 147, 242, 166, 3}}, 2631913573,
 		},
 	}
 	for _, tc := range tests {
