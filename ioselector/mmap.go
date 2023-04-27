@@ -83,19 +83,3 @@ func (mio *MMapSelector) Delete() error {
 	}
 	return os.Remove(mio.fd.Name())
 }
-
-// put new writes to memtable.
-func (mt *memtable) put(key []byte, value []byte, deleted bool, opts WriteOptions) error {
-    entry := &logfile.LogEntry{
-        Key:   key,
-        Value: value,
-    }
-    if opts.ExpiredAt > 0 {
-        entry.ExpiredAt = opts.ExpiredAt
-    }
-    if deleted {
-        entry.Type = logfile.TypeDelete
-    }
-
-    // ....
-}
