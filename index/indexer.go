@@ -72,6 +72,35 @@ type Indexer interface {
 	Close() (err error)
 }
 
+// IndexerOptions options of creating a new indexer.
+type IndexerOptions interface {
+	SetType(typ IndexerType)
+
+	SetColumnFamilyName(cfName string)
+
+	SetDirPath(dirPath string)
+
+	GetType() IndexerType
+
+	GetColumnFamilyName() string
+
+	GetDirPath() string
+}
+
+// NewIndexer create a new Indexer by the given options, return an error if any.
+func NewIndexer(opts IndexerOptions) (Indexer, error) {
+	switch opts.GetType() {
+	case BptreeBoltDB:
+		boltOpts, ok := opts.(*BPTreeOptions)
+		if !ok || boltOpts == nil {
+			return nil, ErrOptionsTypeNotMatch
+		}
+		return NewBPTree(*boltOpts)
+	default:
+		panic("unknown indexer type")
+	}
+}
+
 // EncodeMeta encode IndexerMeta as byte array.
 func EncodeMeta(m *IndexerMeta) []byte {
 	header := make([]byte, metaHeaderSize)
