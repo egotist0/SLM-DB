@@ -1,6 +1,7 @@
 package index
 
 import (
+	"storage/logger"
 	"strings"
 	"time"
 
@@ -242,7 +243,7 @@ func (b *BPTree) sendDiscard(values [][]byte) {
 		select {
 		case b.discardChn <- values:
 		default:
-			// logger.Warn("send to discard chan fail")
+			logger.Warn("send to discard chan fail")
 		}
 	}
 }
