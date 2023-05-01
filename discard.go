@@ -75,6 +75,32 @@ func newDiscard(path, name string) (*discard, error) {
 	return d, nil
 }
 
+func (d *discard) listenUpdates() {
+	for {
+		select {
+		case oldVal, ok := <-d.valChan:
+			if !ok {
+				if err := d.file.Close(); err != nil {
+					logger.Errorf("close discard file err: %v", err)
+				}
+				return
+			}
+			counts := make(map[uint32]int)
+			for _, buf := range oldVal {
+				meta := index.DecodeMeta(buf)
+				counts[meta.Fid] += meta.EntrySize
+			}
+			for fid, size := range counts {
+				d.incrDiscard(fid, size)
+			}
+		}
+	}
+}
+
+func (d *discard) closeChan() {
+	d.once.Do(func() { close(d.valChan) })
+}
+
 // CCL means compaction candidate list.
 // iterate and find the file with most discarded data,
 // there are 341 records at most, no need to worry about the performance.
@@ -114,32 +140,7 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 	return ccl, nil
 }
 
-func (d *discard) listenUpdates() {
-	for {
-		select {
-		case oldVal, ok := <-d.valChan:
-			if !ok {
-				if err := d.file.Close(); err != nil {
-					logger.Errorf("close discard file err: %v", err)
-				}
-				return
-			}
-			counts := make(map[uint32]int)
-			for _, buf := range oldVal {
-				meta := index.DecodeMeta(buf)
-				counts[meta.Fid] += meta.EntrySize
-			}
-			for fid, size := range counts {
-				d.incrDiscard(fid, size)
-			}
-		}
-	}
-}
-
-func (d *discard) closeChan() {
-	d.once.Do(func() { close(d.valChan) })
-}
-
+// setTotal init a new vlog in discard and corresponding log.
 func (d *discard) setTotal(fid uint32, totalSize uint32) {
 	d.Lock()
 	defer d.Unlock()
@@ -165,10 +166,12 @@ func (d *discard) setTotal(fid uint32, totalSize uint32) {
 func (d *discard) clear(fid uint32) {
 	d.incr(fid, -1)
 	d.Lock()
+
 	if offset, ok := d.location[fid]; ok {
 		d.freeList = append(d.freeList, offset)
 		delete(d.location, fid)
 	}
+
 	d.Unlock()
 }
 
@@ -187,7 +190,10 @@ func (d *discard) incr(fid uint32, delta int) {
 		logger.Errorf("discard file allocate err: %+v", err)
 		return
 	}
-
+	// +-------+--------------+----------------+
+	// |  fid  |  total size  | discarded size |
+	// +-------+--------------+----------------+
+	// 0-------4--------------8---------------12
 	var buf []byte
 	if delta > 0 {
 		buf = make([]byte, 4)
@@ -199,7 +205,7 @@ func (d *discard) incr(fid uint32, delta int) {
 
 		v := binary.LittleEndian.Uint32(buf)
 		binary.LittleEndian.PutUint32(buf, v+uint32(delta))
-	} else {
+	} else { // clear
 		buf = make([]byte, discardRecordSize)
 	}
 
@@ -209,15 +215,15 @@ func (d *discard) incr(fid uint32, delta int) {
 	}
 }
 
-// must hold the lock before invoking
+// must hold the lock before invoking, alloc a space for specified fid in discarded log.
 func (d *discard) alloc(fid uint32) (int64, error) {
 	if offset, ok := d.location[fid]; ok {
 		return offset, nil
 	}
-	if len(d.freeList) == 0 {
+
+	if len(d.freeList) == 0 { // no extra space.
 		return 0, ErrDiscardNoSpace
 	}
-
 	offset := d.freeList[len(d.freeList)-1]
 	d.freeList = d.freeList[:len(d.freeList)-1]
 	d.location[fid] = offset
