@@ -27,7 +27,7 @@ const discardRecordSize = 12
 // 0-------4--------------8---------------12  12------16------------20----------------24
 type discard struct {
 	sync.Mutex
-	once     *sync.Once // used to control the close of valChan
+	once     *sync.Once // used to control the close of valChan(only once)
 	valChan  chan [][]byte
 	file     ioselector.IOSelector
 	freeList []int64          // contains file offset that can be allocated
