@@ -1,5 +1,70 @@
 package storage
 
+import "time"
+
+// ColumnFamilyOptions for column family.
+type ColumnFamilyOptions struct {
+
+	// CFName column family name, can't be nil.
+	CFName string
+
+	// DirPath dir path for column family, default value is db path + CFName.
+	// will be created automatically if not exist.
+	DidPath string
+
+	// MemtableSize indicates the maximum size in bytes for memtable.
+	// It means that each memtable will occupy so much memory.
+	// Default to be 64MB.
+	MemtableSize uint32
+
+	// MemtableNums indicates maximum number of memtables to keep in memory before flushing.
+	// Default value is 5.
+	MemtableNums int
+
+	// MemSpaceWaitTimeout indicates timeout for waiting enough memtable space to write.
+	// In this scenario will wait: memtable has reached the maximum nums, and has no time to be flushed into disk.
+	// Default value is 100ms.
+	MemSpaceWaitTimeout time.Duration
+
+	// IndexerDir dir path to store index meta info, default value is dir path.
+	IndexerDir string
+
+	// FlushBatchSize Since we use b+tree to store index info on disk right now.
+	// We need flush data to b+tree in batches, which can minimize random IO and reduce write amplification.
+	// Default value is 100000.
+	FlushBatchSize int
+
+	// WalMMap indicates whether to use memory map for reading and writing on WAL.
+	// Setting false means to use standard file io.
+	// Default value is false.
+	WalMMap bool
+
+	// WalBytesFlush can be used to smooth out write I/Os over time. Users shouldn't rely on it for persistency guarantee.
+	// Default value is 0, turned off.
+	WalBytesFlush uint32
+
+	// ValueLogDir dir path to store value log file, default value is dir path.
+	ValueLogDir string
+
+	// ValueLogFileSize size of a single value log file.
+	// Default value is 1GB.
+	ValueLogFileSize int64
+
+	// ValueLogMmap similar to WalMMap, default value is false.
+	ValueLogMmap bool
+
+	// ValueLogGCRatio if discarded data in value log exceeds this ratio, it can be picked up for compaction(garbage collection)
+	// And if there are many files reached the ratio, we will pick the highest one by one.
+	// The recommended ratio is 0.5, half of the file can be compacted.
+	// Default value is 0.5.
+	ValueLogGCRatio float64
+
+	// ValueLogGCInterval a background goroutine will check and do gc periodically according to the interval.
+	// If you don`t want value log file be compacted, set it a Zero time.
+	// Default value is 10 minutes.
+	ValueLogGCInterval time.Duration
+}
+
 // WriteOptions set optional params for PutWithOptions and DeleteWithOptions.
 // If use Put and Delete (without options), meaning the use of default values.
 type WriteOptions struct {
