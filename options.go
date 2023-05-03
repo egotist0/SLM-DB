@@ -2,6 +2,15 @@ package storage
 
 import "time"
 
+// Options for opening a db.
+type Options struct {
+	// DBPath db path, will be created automatically if not exist.
+	DBPath string
+
+	// CFOpts options for column family.
+	CFOpts ColumnFamilyOptions
+}
+
 // ColumnFamilyOptions for column family.
 type ColumnFamilyOptions struct {
 
