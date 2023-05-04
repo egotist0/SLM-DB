@@ -144,7 +144,7 @@ func (b *BPTree) PutBatch(nodes []*IndexerNode, opts WriteOptions) (offset int, 
 		bucket.FillPercent = fillPercent
 		var oldValues [][]byte
 		for itemIdx := offset; itemIdx < offset+b.opts.BatchSize; itemIdx++ {
-			if itemIdx >= len(nodes) {
+			if itemIdx >= len(nodes) { // deal with the final batch.
 				break
 			}
 			meta := EncodeMeta(nodes[itemIdx].Meta)
@@ -183,7 +183,7 @@ func (b *BPTree) DeleteBatch(keys [][]byte, opts WriteOptions) error {
 		bucket.FillPercent = fillPercent
 		var oldValues [][]byte
 		for itemIdx := offset; itemIdx < offset+b.opts.BatchSize; itemIdx++ {
-			if itemIdx >= len(keys) {
+			if itemIdx >= len(keys) { // deal with the final batch.
 				break
 			}
 			if oldVal, err := bucket.Delete(keys[itemIdx]); err != nil {
