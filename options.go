@@ -1,6 +1,16 @@
 package storage
 
-import "time"
+import (
+	"os"
+	"time"
+)
+
+const (
+	// DefaultColumnFamilyName default cf name, we will create a default column family when opening a db.
+	DefaultColumnFamilyName = "cf_default"
+	separator               = string(os.PathSeparator)
+	lockFileName            = "FLOCK"
+)
 
 // Options for opening a db.
 type Options struct {
@@ -19,7 +29,7 @@ type ColumnFamilyOptions struct {
 
 	// DirPath dir path for column family, default value is db path + CFName.
 	// will be created automatically if not exist.
-	DidPath string
+	DirPath string
 
 	// MemtableSize indicates the maximum size in bytes for memtable.
 	// It means that each memtable will occupy so much memory.
