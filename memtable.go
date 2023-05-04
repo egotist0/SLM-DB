@@ -120,7 +120,7 @@ func (mt *memtable) put(key, value []byte, deleted bool, opts WriteOptions) erro
 			return err
 		}
 
-		// if WriteOptions.Sync is true or bytesWritten has reached bytedFlush, syncWal will be true.
+		// if WriteOptions.Sync is true or bytesWritten has reached byteFlush, syncWal will be true.
 		syncWal := opts.Sync
 		if mt.opts.bytesFlush > 0 {
 			writes := atomic.AddUint32(&mt.bytesWritten, uint32(sz))
@@ -203,6 +203,7 @@ func (mt *memtable) deleteWal() error {
 	return mt.wal.Delete()
 }
 
+// encode() encode a memValue into a buf.
 func (mv *memValue) encode() []byte {
 	head := make([]byte, 11)
 	head[0] = mv.typ
@@ -214,6 +215,7 @@ func (mv *memValue) encode() []byte {
 	return buf
 }
 
+// decodeMemValue decode the given buf and return the corresponding memValue.
 func decodeMemValue(buf []byte) memValue {
 	index := 1
 	expiredAt, n := binary.Varint(buf[index:])
