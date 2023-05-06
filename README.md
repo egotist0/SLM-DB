@@ -1,4 +1,4 @@
-A high-performance standalone KV STORAGE ENGIN merging the high write performance of LSM Tree and the read ability of B+ Tree.
+A high-performance standalone KV STORAGE ENGINE merging the high write performance of LSM Tree and the read ability of B+ Tree.
 
 ## Attributes:
 
