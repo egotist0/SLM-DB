@@ -87,8 +87,9 @@ func decodeHeader(buf []byte) (*entryHeader, int64) {
 
 	expiredAt, n := binary.Varint(buf[index:])
 	h.expiredAt = expiredAt
+	index += n
 
-	return h, int64(index + n)
+	return h, int64(index)
 }
 
 // getEntryCrc is used to check the validation of the LogEntry.
