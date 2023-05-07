@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -171,11 +172,168 @@ func (cf *ColumnFamily) Put(key, value []byte) error {
 }
 
 // PutWithOptions put to current column family with options.
-// func (cf *ColumnFamily) PutWithOptions(key, value []byte, opt *WriteOptions) error {
-// 	// waiting for enough memtable space to write.
-// 	size:=uint32(len(key)+len(value))
+func (cf *ColumnFamily) PutWithOptions(key, value []byte, opt *WriteOptions) error {
+	// waiting for enough memtable space to write.
+	size := uint32(len(key) + len(value))
+	if err := cf.waitWritesMemSpace(size); err != nil {
+		return err
+	}
+	if opt == nil {
+		opt = new(WriteOptions)
+	}
 
-// }
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+
+	if err := cf.activeMem.put(key, value, false, *opt); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Get get value by the specified key from current column family.
+// If will first retrieve entry from memtables, then it will search key in bptree index,
+// if the searched result already have value, return, else it will search in vlog according index.
+func (cf *ColumnFamily) Get(key []byte) ([]byte, error) {
+	// get from active and immutable memtables.
+	tables := cf.getAllMemtables()
+	for _, mem := range tables {
+		if invalid, value := mem.get(key); len(value) != 0 || invalid {
+			return value, nil
+		}
+	}
+
+	cf.mu.RLock()
+	defer cf.mu.RUnlock()
+
+	// get index from bptree.
+	indexMeta, err := cf.indexer.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if indexMeta == nil {
+		return nil, nil
+	}
+
+	// get value from vlog according to the index.
+	if len(indexMeta.Value) == 0 {
+		ent, err := cf.vlog.Read(indexMeta.Fid, indexMeta.Offset)
+		if err != nil {
+			return nil, err
+		}
+		if ent.ExpiredAt != 0 && ent.ExpiredAt <= time.Now().Unix() {
+			return nil, nil
+		}
+		if len(ent.Value) != 0 {
+			return ent.Value, nil
+		}
+	}
+	return indexMeta.Value, nil
+}
+
+// Delete delete from current column family.
+func (cf *ColumnFamily) Delete(key []byte) error {
+	return cf.DeleteWithOptions(key, nil)
+}
+
+// DeleteWithOptions delete from current column family with options.
+// put a key with a special tombstone value in activeMem.
+func (cf *ColumnFamily) DeleteWithOptions(key []byte, opt *WriteOptions) error {
+	size := uint32(len(key))
+	if err := cf.waitWritesMemSpace(size); err != nil {
+		return err
+	}
+	if opt == nil {
+		opt = new(WriteOptions)
+	}
+
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+
+	if err := cf.activeMem.delete(key, *opt); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Stat returns some statistics info of current column family.
+func (cf *ColumnFamily) Stat() (*Stat, error) {
+	st := &Stat{}
+	tables := cf.getAllMemtables()
+	for _, table := range tables {
+		st.MemtableSize += int64(table.skl.Size())
+	}
+	return st, nil
+}
+
+// Close close current column family.
+func (cf *ColumnFamily) Close() error {
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+	atomic.StoreUint32(&cf.closed, 1)             // Set closed to true using an atomic operation.
+	cf.closeOnce.Do(func() { close(cf.closedC) }) // Notify all waiting goroutines that the operation has been closed.
+
+	var err error
+	// commits the current contents of file to stable storage.
+	if syncErr := cf.Sync(); syncErr != nil {
+		err = syncErr
+	}
+
+	// close all wal files.
+	if walErr := cf.activeMem.closeWAL(); walErr != nil {
+		err = walErr
+	}
+	for _, mem := range cf.immuMems {
+		if walErr := mem.closeWAL(); walErr != nil {
+			err = walErr
+		}
+	}
+
+	// close index data file.
+	if idxErr := cf.indexer.Close(); idxErr != nil {
+		err = idxErr
+	}
+
+	// close vlog files.
+	if vlogErr := cf.vlog.Close(); vlogErr != nil {
+		err = vlogErr
+	}
+
+	// release file locks.
+	for _, dirLock := range cf.dirLocks {
+		if lockErr := dirLock.Release(); lockErr != nil {
+			err = lockErr
+		}
+	}
+
+	return err
+}
+
+// Sync syncs the content of current column family to disk.
+// Synchronize curent wal, indexer and vlog.
+func (cf *ColumnFamily) Sync() error {
+	if err := cf.activeMem.syncWAL(); err != nil {
+		return err
+	}
+	if err := cf.indexer.Sync(); err != nil {
+		return err
+	}
+	return cf.vlog.Sync()
+}
+
+// IsClosed return whether the column family is closed.
+func (cf *ColumnFamily) IsClosed() bool {
+	return atomic.LoadUint32(&cf.closed) == 1
+}
+
+// Options returns a copy of current column family options.
+func (cf *ColumnFamily) Options() ColumnFamilyOptions {
+	return cf.opts
+}
+
+/*
+tool func.
+*/
 
 // openMemtables open all the active and immutable memtables for the given cf.
 func (cf *ColumnFamily) openMemtables() error {
@@ -231,6 +389,41 @@ func (cf *ColumnFamily) openMemtables() error {
 		}
 	}
 	return nil
+}
+
+// getAllMemtables get all the activeMem and immuMems as a memtable slice
+func (cf *ColumnFamily) getAllMemtables() []*memtable {
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+
+	immuLen := len(cf.immuMems)
+	var tables = make([]*memtable, immuLen+1)
+	tables[0] = cf.activeMem
+	for idx := 0; idx < immuLen; idx++ {
+		tables[idx+1] = cf.immuMems[immuLen-idx-1]
+	}
+	return tables
+}
+
+// acquireDirLocks generate dir lock for cf, index and vlog work dir.
+func acquireDirLocks(cfDir, indexerDir, vlogDir string) ([]*flock.FileLockGuard, error) {
+	var dirs = []string{cfDir}
+	if indexerDir != cfDir {
+		dirs = append(dirs, indexerDir)
+	}
+	if vlogDir != cfDir {
+		dirs = append(dirs, vlogDir)
+	}
+
+	var flocks []*flock.FileLockGuard
+	for _, dir := range dirs {
+		lock, err := flock.AcquireFileLock(dir+separator+lockFileName, false)
+		if err != nil {
+			return nil, err
+		}
+		flocks = append(flocks, lock)
+	}
+	return flocks, nil
 }
 
 /*
@@ -371,25 +564,4 @@ func (cf *ColumnFamily) flushUpdateIndex(insertNodes []*index.IndexerNode, delet
 		return err
 	}
 	return nil
-}
-
-// acquireDirLocks generate dir lock for cf, index and vlog work dir.
-func acquireDirLocks(cfDir, indexerDir, vlogDir string) ([]*flock.FileLockGuard, error) {
-	var dirs = []string{cfDir}
-	if indexerDir != cfDir {
-		dirs = append(dirs, indexerDir)
-	}
-	if vlogDir != cfDir {
-		dirs = append(dirs, vlogDir)
-	}
-
-	var flocks []*flock.FileLockGuard
-	for _, dir := range dirs {
-		lock, err := flock.AcquireFileLock(dir+separator+lockFileName, false)
-		if err != nil {
-			return nil, err
-		}
-		flocks = append(flocks, lock)
-	}
-	return flocks, nil
 }
