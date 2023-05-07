@@ -12,6 +12,30 @@ const (
 	lockFileName            = "FLOCK"
 )
 
+// DefaultOptions default options for opening a LotusDB.
+func DefaultOptions(path string) Options {
+	return Options{
+		DBPath: path,
+		CFOpts: DefaultColumnFamilyOptions(DefaultColumnFamilyName),
+	}
+}
+
+// DefaultColumnFamilyOptions default options for opening a column family.
+func DefaultColumnFamilyOptions(name string) ColumnFamilyOptions {
+	return ColumnFamilyOptions{
+		CFName:              name,
+		MemtableSize:        64 << 20,
+		MemtableNums:        5,
+		MemSpaceWaitTimeout: time.Millisecond * 100,
+		FlushBatchSize:      100000,
+		WalMMap:             false,
+		ValueLogFileSize:    1024 << 20,
+		ValueLogMmap:        false,
+		ValueLogGCRatio:     0.5,
+		ValueLogGCInterval:  time.Minute * 10,
+	}
+}
+
 // Options for opening a db.
 type Options struct {
 	// DBPath db path, will be created automatically if not exist.
