@@ -12,7 +12,7 @@ const (
 	lockFileName            = "FLOCK"
 )
 
-// DefaultOptions default options for opening a LotusDB.
+// DefaultOptions default options for opening a DB.
 func DefaultOptions(path string) Options {
 	return Options{
 		DBPath: path,
