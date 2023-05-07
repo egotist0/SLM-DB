@@ -141,7 +141,7 @@ func testValueLogWrite(t *testing.T, ioType logfile.IOType) {
 			"no-value", fields{vlog: vlog}, args{e: &logfile.LogEntry{Key: []byte("key1")}}, &valuePos{Fid: 0, Offset: 15}, false,
 		},
 		{
-			"with-key-value", fields{vlog: vlog}, args{e: &logfile.LogEntry{Key: []byte("key2"), Value: []byte("lotusdb-2")}}, &valuePos{Fid: 0, Offset: 27}, false,
+			"with-key-value", fields{vlog: vlog}, args{e: &logfile.LogEntry{Key: []byte("key2"), Value: []byte("egotist-2")}}, &valuePos{Fid: 0, Offset: 27}, false,
 		},
 		{
 			"key-big-value", fields{vlog: vlog}, args{e: &logfile.LogEntry{Key: []byte("key3"), Value: GetValue4K()}}, &valuePos{Fid: 0, Offset: 48}, false,
@@ -422,11 +422,11 @@ func openValueLogForTest(path string, blockSize int64, ioType logfile.IOType, gc
 }
 
 func TestValueLog_Compaction_Normal(t *testing.T) {
-	opts := DefaultOptions("/tmp" + separator + "lotusdb")
-	opts.CfOpts.ValueLogFileSize = 16 * 1024 * 1024
-	opts.CfOpts.MemtableSize = 32 << 20
-	opts.CfOpts.ValueLogGCRatio = 0.5
-	opts.CfOpts.ValueLogGCInterval = time.Second * 7
+	opts := DefaultOptions("/tmp" + separator + "db")
+	opts.CFOpts.ValueLogFileSize = 16 * 1024 * 1024
+	opts.CFOpts.MemtableSize = 32 << 20
+	opts.CFOpts.ValueLogGCRatio = 0.5
+	opts.CFOpts.ValueLogGCInterval = time.Second * 7
 
 	db, err := Open(opts)
 	assert.Nil(t, err)
@@ -463,12 +463,12 @@ func TestValueLog_Compaction_Normal(t *testing.T) {
 //}
 
 func testCompacction(t *testing.T, reading, writing bool) {
-	path, _ := ioutil.TempDir("", "lotusdb")
+	path, _ := ioutil.TempDir("", "db")
 	opts := DefaultOptions(path)
-	opts.CfOpts.ValueLogFileSize = 16 * 1024 * 1024
-	opts.CfOpts.MemtableSize = 32 << 20
-	opts.CfOpts.ValueLogGCRatio = 0.5
-	opts.CfOpts.ValueLogGCInterval = time.Second * 7
+	opts.CFOpts.ValueLogFileSize = 16 * 1024 * 1024
+	opts.CFOpts.MemtableSize = 32 << 20
+	opts.CFOpts.ValueLogGCRatio = 0.5
+	opts.CFOpts.ValueLogGCInterval = time.Second * 7
 
 	db, err := Open(opts)
 	assert.Nil(t, err)
