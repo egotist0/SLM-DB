@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"storage/index"
 	"storage/logfile"
 	"storage/logger"
 	"strconv"
@@ -195,7 +196,7 @@ func (vlog *valueLog) Sync() error {
 	return vlog.activeLogFile.Sync()
 }
 
-// Close only for the active log file.
+// Close closes all the log files.
 func (vlog *valueLog) Close() error {
 	// close discard channel.
 	vlog.discard.closeChan()
@@ -227,6 +228,7 @@ func (vlog *valueLog) createLogFile() (*logfile.LogFile, error) {
 }
 
 // setLogFileState initiate the writeAt and current active log for given vlog.
+// Update the vlog.activeLogFile.WriteAt, if active file's capacity is nearly close to block size, open a new active file.
 func (vlog *valueLog) setLogFileState() error {
 	if vlog.activeLogFile == nil {
 		return ErrActiveLogFileNil
@@ -269,13 +271,21 @@ func (vlog *valueLog) getActiveFid() uint32 {
 	return fid
 }
 
-// getLogFile get the LogFile in vlog.logFiles(used for CLL);
+/*
+handle vlog compaction part.
+*/
+
 func (vlog *valueLog) getLogFile(fid uint32) *logfile.LogFile {
 	vlog.Lock()
 	defer vlog.Unlock()
 	return vlog.logFiles[fid]
 }
 
+// handleCompaction implements a periodic task that cyclically checks
+// and compacts a value log. It sets up a signal channel to receive interrupt
+// and other signals from the operating system, and a timer to periodically
+// trigger the compaction. It listens to the timer, signal channel,and a closed
+// channel, and exits the loop when the closed channel is closed or a signal is received.
 func (vlog *valueLog) handleCompaction() {
 	if vlog.opt.gcInterval <= 0 {
 		return
@@ -298,4 +308,118 @@ func (vlog *valueLog) handleCompaction() {
 			return
 		}
 	}
+}
+
+// compact is used for compacting the log files. In this db, log files are used to record
+// data mutation operations so that the correct state can be restored in subsequent queries. When
+// log files become too large, they need to be compacted to avoid excessive disk space usage.
+func (vlog *valueLog) compact() error {
+	// Get the current active log file ID and use the gcRatio to obtain a list of log file IDs to compact.
+	activeFid := vlog.getActiveFid()
+	ccl, err := vlog.discard.getCCL(activeFid, vlog.opt.gcRatio)
+	if err != nil {
+		return err
+	}
+
+	rewrite := func(file *logfile.LogFile) error {
+		vlog.cf.flushLock.Lock()
+		defer vlog.cf.flushLock.Unlock()
+
+		var offset int64
+		var validEntries []*logfile.LogEntry
+		ts := time.Now().Unix()
+		for {
+			entry, sz, err := file.ReadLogEntry(offset)
+			if err != nil {
+				if err == io.EOF || err == logfile.ErrEndOfEntry {
+					break
+				}
+				return err
+			}
+			eoff := offset
+			offset += sz
+			// get the corresponding index of the vlog's entry.
+			indexMeta, err := vlog.cf.indexer.Get(entry.Key)
+			if err != nil {
+				return err
+			}
+			// If the index metadata is missing or the log entry's
+			// value has already been indexed(the value in vlog must be old.), skip it.
+			if indexMeta == nil || len(indexMeta.Value) != 0 {
+				continue
+			}
+			if indexMeta.Fid == file.Fid && indexMeta.Offset == eoff {
+				validEntries = append(validEntries, entry)
+			}
+		}
+		// Create new index nodes and deleted keys lists as we rewrite valid log entries.
+		var nodes []*index.IndexerNode
+		var deletedKeys [][]byte
+
+		for _, e := range validEntries {
+			if e.ExpiredAt != 0 && e.ExpiredAt <= ts {
+				// If the log entry has expired, add its key to the deleted keys list.
+				deletedKeys = append(deletedKeys, e.Key)
+				continue
+			}
+			// Write the log entry to the new log file and add the corresponding index metadata to the index nodes list.
+			valuePos, esize, err := vlog.Write(e)
+			if err != nil {
+				return err
+			}
+			nodes = append(nodes, &index.IndexerNode{
+				Key: e.Key,
+				Meta: &index.IndexerMeta{
+					Fid:       valuePos.Fid,
+					Offset:    valuePos.Offset,
+					EntrySize: esize,
+				},
+			})
+		}
+		// Write the new index nodes and delete the expired log entries' keys.
+		writeOpts := index.WriteOptions{SendDiscard: false}
+		if _, err := vlog.cf.indexer.PutBatch(nodes, writeOpts); err != nil {
+			return err
+		}
+		if len(deletedKeys) > 0 {
+			if err := vlog.cf.indexer.DeleteBatch(deletedKeys, writeOpts); err != nil {
+				return err
+			}
+		}
+		if err := vlog.cf.indexer.Sync(); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// For each log file to compact, open the file and iterate over each log entry.
+	for _, fid := range ccl {
+		lf := vlog.getLogFile(fid)
+		if lf == nil || lf.IOSelector == nil {
+			// If the file is not open, open it.
+			file, err := logfile.OpenLogFile(vlog.opt.path, fid, vlog.opt.blockSize, logfile.ValueLog, vlog.opt.ioType)
+			if err != nil {
+				return err
+			}
+			lf = file
+		}
+
+		// Rewrite each valid log entry.
+		if err = rewrite(lf); err != nil {
+			logger.Warnf("compact rewrite err: %+v", err)
+			return err
+		}
+
+		// Clear the discard state and delete the old log file.
+		vlog.discard.clear(fid)
+		vlog.Lock()
+		if _, ok := vlog.logFiles[fid]; ok {
+			delete(vlog.logFiles, fid)
+		}
+		vlog.Unlock()
+		if err = lf.Delete(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
