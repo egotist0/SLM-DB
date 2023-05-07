@@ -41,7 +41,7 @@ const MaxHeaderSize = 25
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------HEADER----------------------|
 //
-//	       |--------------------------crc check---------------------------|
+//	|--------------------------crc check---------------------------|
 func EncodeEntry(e *LogEntry) ([]byte, int) {
 	if e == nil {
 		return nil, 0
@@ -87,9 +87,8 @@ func decodeHeader(buf []byte) (*entryHeader, int64) {
 
 	expiredAt, n := binary.Varint(buf[index:])
 	h.expiredAt = expiredAt
-	index += n
 
-	return h, int64(index)
+	return h, int64(index + n)
 }
 
 // getEntryCrc is used to check the validation of the LogEntry.

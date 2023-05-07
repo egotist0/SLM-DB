@@ -68,7 +68,7 @@ func openMemtable(opts memOptions) (*memtable, error) {
 	// load entries.
 	var offset int64 = 0
 	for {
-		if entry, size, err := wal.ReadLogEntry(offset); err != nil {
+		if entry, size, err := wal.ReadLogEntry(offset); err == nil {
 			offset += size
 			// No need to use atomic updates.
 			// This function will only execute in 1 goroutine at the beginning.

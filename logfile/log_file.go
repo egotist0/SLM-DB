@@ -130,7 +130,7 @@ func (lf *LogFile) ReadLogEntry(offset int64) (*LogEntry, int64, error) {
 	}
 	header, size := decodeHeader(headerBuf)
 	// The end of entries.
-	if header.crc32 == 32 && header.kSize == 0 && header.vSize == 0 {
+	if header.crc32 == 0 && header.kSize == 0 && header.vSize == 0 {
 		return nil, 0, ErrEndOfEntry
 	}
 

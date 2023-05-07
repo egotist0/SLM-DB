@@ -411,7 +411,7 @@ func acquireDirLocks(cfDir, indexerDir, vlogDir string) ([]*flock.FileLockGuard,
 	if indexerDir != cfDir {
 		dirs = append(dirs, indexerDir)
 	}
-	if vlogDir != cfDir {
+	if vlogDir != cfDir && vlogDir != indexerDir {
 		dirs = append(dirs, vlogDir)
 	}
 

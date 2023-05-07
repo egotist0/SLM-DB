@@ -89,7 +89,7 @@ func (db *DB) Sync() error {
 }
 
 // Close close database.
-func (db *DB) close() error {
+func (db *DB) Close() error {
 	for _, cf := range db.cfs {
 		if err := cf.Close(); err != nil {
 			return err
