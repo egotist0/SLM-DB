@@ -2,6 +2,6 @@
 .DS_Store
 codecov.yaml
 coverage.txt
-benchmark/
 .vscode/
 .VSCodeCounter/
+benchmark/testdb/
