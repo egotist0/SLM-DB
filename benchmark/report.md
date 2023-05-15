@@ -25,5 +25,5 @@ For deletes, SLM DB also achieves the best performance with 1566ns/op on average
 | LevelDB  | 6649  | 17432  | 122309  | 1963  | 3236  |
 | LedisDB  | 6106  | 13900  | 82103  | 2511  | 4368  |
 | Badger  | 8936  | 16060  | 83957  | 3336  | 7334  |
-| SLM DB | 4388  | 12022  | 81769  | 2951  | 1566  |
+| SLM DB | 4388  | 12022  | 81769  | 2151  | 1566  |
 | Redis   | 32702  | 40988  | 112486  | 33929  | 29454  |
