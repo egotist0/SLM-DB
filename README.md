@@ -1,6 +1,6 @@
 # SLM DB README
 
-SLM DB (Single-Level Merge DB) is a single-machine key-value database inspired by [SLM-DB](https://www.usenix.org/conference/fast19/presentation/kaiyrakhmet) presented at USENIX FAST '19, ，[lotudb](https://github.com/flower-corp/lotusdb), and [Wisckey](https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf).
+SLM DB (Single-Level Merge DB) is a single-machine key-value database inspired by [SLM-DB](https://www.usenix.org/conference/fast19/presentation/kaiyrakhmet) presented at USENIX FAST '19, [lotudb](https://github.com/flower-corp/lotusdb), and [Wisckey](https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf).
 
 ## Features
 
