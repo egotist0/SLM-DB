@@ -12,7 +12,7 @@ SLM DB combines the advantages of B+ trees and LSM trees to provide excellent re
 - Uses a multi-level memtable based on Skiplist to guarantee O(log N) query performance.
 - Implements a single-level SSTable and uses selective compaction to manage garbage collection.
 
-For detailed performance benchmark results, please refer to [benchmark/report.md](https://github.com/egotist0/SLM-DB/blob/master/benchmark/report.md).
+For morw detailed performance benchmark results, please refer to [benchmark/report.md](https://github.com/egotist0/SLM-DB/blob/master/benchmark/report.md).
 
 ## Getting Started
 
